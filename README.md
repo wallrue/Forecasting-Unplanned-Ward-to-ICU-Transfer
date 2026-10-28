@@ -1,5 +1,6 @@
 # Forecasting 7-Day ICU Bed Demand via Patient Deterioration Modeling
-This is the repository for IE7275 GroupA project: I see you, ICU
+IE7275 Group A project — *I See You, ICU*.
+Authors: Ka Won Cho, Minh Tuong Le, Shanti Ram Pokhrel.
 
 ## 1. Problem Statement & Intended Users
 
@@ -22,37 +23,42 @@ This project implements a hierarchical predictive framework that combines micro-
 - **Database:** Medical Information Mart for Intensive Care IV (**MIMIC-IV v3.1**)
 - **URL:** [https://physionet.org/content/mimiciv/3.1/](https://physionet.org/content/mimiciv/3.1/)
 - **Provider:** PhysioNet / Massachusetts Institute of Technology (MIT) Computational Physiology Lab.
+- **Download Date:** 2026-09-23
 - **Institutional Origin:** Beth Israel Deaconess Medical Center (BIDMC), Boston, MA.
 
 ### Dataset Access & Acquisition
-- **License:** PhysioNet Restricted Data Use Agreement (DUA) / Creative Commons Attribution 4.0 International (CC BY 4.0).
+- **License:** [PhysioNet Credentialed Health Data License 1.5.0](https://physionet.org/content/mimiciv/view-license/3.1/) |
+                under PhysioNet Restricted Data Use Agreement (DUA) / Creative Commons Attribution 4.0 International (CC BY 4.0).
+    **The data are not included in this repository and must not be redistributed.** 
+    The license above applies to the data only; the MIT license in [`LICENSE`](LICENSE) covers the code.
 - **Access Requirements:** Access requires credentialing on PhysioNet, completion of the CITI "Data or Specimens Only Research" training, and signing the DUA.
 - **Data Modules Used:**
   - `hosp.patients`, `hosp.admissions`, `hosp.transfers`, `hosp.labevents`, `hosp.prescriptions`, `hosp.diagnoses_icd`, `hosp.omr`, `hosp.services`
   - `icu.icustays`
 
+### How to obtain the data
+1. Create a PhysioNet account and complete credentialing.
+2. Complete the CITI course *"Data or Specimens Only Research"* and upload the certificate.
+3. Sign the data use agreement on the MIMIC-IV 3.1 project page.
+4. Download the files and place them, unchanged (still gzipped), under `data/raw/`:
+
 ---
 
-## 3. Installation & Dependencies
+## 3. Installation
 
-### Environment Setup
-- Python version: **3.10+**
-- Recommended virtual environment tool: `conda` or `venv`
-
-### Setup Instructions
+Requires **Python 3.12** (`pyproject.toml` pins `>=3.12,<3.13`). About 16 GB of RAM is
+recommended; `labevents` (2.6 GB compressed) is streamed in blocks.
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/icu-inflow-forecasting.git
-cd icu-inflow-forecasting
+git clone https://github.com/wallrue/Forecasting-Unplanned-Ward-to-ICU-Transfer.git
+cd Forecasting-Unplanned-Ward-to-ICU-Transfer
 
-# Create and activate a Python environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
-# Install dependencies
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements.txt    # pinned versions; also installs this package (-e .)
+pip install jupyter seaborn        # only needed for the notebooks
 ```
 
 ### Key Dependencies (`requirements.txt`)
@@ -78,39 +84,61 @@ To reproduce all results and figures reported in the project study, follow the p
 ### Step 1: Data Access
 Download dataset from Physionet site:
 
-### Step 2: Extract Feature Matrix & Cohorts
-Run the feature extraction script using the SQL pipeline to query MIMIC-IV v3.1 and output the local feature matrix:
+### Step 2: Clean Data and Extract Feature Matrix & Cohorts
 
+```bash
+python -m icu_forecast.clean
+python -m icu_forecast.split
+python -m icu_forecast.features
+python -m icu_forecast.prepare
+python -m icu_forecast.export_csv
+jupyter nbconvert --to notebook --execute --inplace notebooks/01_eda.ipynb
+jupyter nbconvert --to notebook --execute --inplace notebooks/02_pca.ipynb
+```
 
-## 5. Repository Structure
+## 5. Repository structure
 
-ie7275-GroupA/
+```
+.
+├── README.md                 # this file
+├── LICENSE                   # MIT license for the code
+├── config.yaml               # all paths, seed, split ratios, cohort and feature settings
+├── pyproject.toml            # package metadata (installs src/icu_forecast)
+├── requirements.txt          # pinned dependencies
 │
-├── README.md              # Project overview, data specs, setup, and reproduction guide
-├── LICENSE                # Terms for reusing code
-├── requirements.txt       # Pinned project dependencies
-├── config.yaml            # Paths, random seeds, and global configuration settings
-├── .gitignore             # Excludes raw data, credentials, and virtual environments
+├── src/icu_forecast/         # pipeline package (run with python -m icu_forecast.<module>)
+│   ├── config.py             # loads config.yaml, resolves paths from the repo root
+│   ├── clean.py              # cleans raw MIMIC-IV tables, builds the cohort
+│   ├── split.py              # patient-level stratified train/val/test split
+│   ├── features.py           # 08:00 snapshots, 24 h / 48 h labels, 137 features
+│   ├── prepare.py            # imputation, scaling, encoding fitted on train only
+│   └── export_csv.py         # exports processed parquet files to CSV
+├── code/                     # earlier copy of the pipeline scripts (superseded by src/)
 │
-├── data/                  # Local data storage (ignored by Git)
-│   ├── raw/               # Original read-only data extracts
-│   └── processed/         # Cleaned and engineered feature datasets
+├── notebooks/
+│   ├── 01_eda.ipynb          # exploratory data analysis
+│   └── 02_pca.ipynb          # PCA on the routine lab panel
+├── sql/
+│   └── 01_pipeline_validation.sql   # SQL cross-check of the cohort definition
 │
-├── notebooks/             # Exploratory notebooks (ordered: 01_eda.ipynb, 02_pca.ipynb)
-│   ├── 01_eda.ipynb       # Exploratory Data Analysis
+├── reports/
+│   ├── IE7275_GroupA_Project_Proposal_M3.pdf   # milestone report (.doc source alongside)
+│   ├── data_pipeline.md      # before/after counts for every pipeline step
+│   └── figures/              # figures used in the reports
 │
-├── sql/                   # SQL repository
-│   ├── pipeline_validation.sql      # Data Pipeline Validation
-│
-├── src/                   # Reusable source code package
-│   └── ie7275-GroupA/
-│       ├── __init__.py    # Package initializer
-│       ├── clean.py       # Data cleaning and error/duplicate handling
-│       ├── prepare.py     # Imputation and scaling (fitted on training data only)
-│       ├── split.py       # Patient-level data splitting (train/val/test)
-│       ├── features.py    # Feature engineering modules
-│       └── models/        # Modeling pipelines and evaluation scripts
-│
-├── reports/figures/       # Generated charts and figures for the final report
-├── app/                   # Web-based microproduct dashboard code
-└── tests/                 # Unit tests for core functions and validation scripts
+└── data/                     # not tracked by Git; created locally
+    ├── raw/                  # original MIMIC-IV files (read-only)
+    ├── processed/            # parquet outputs of the pipeline
+    └── processed_csv/        # CSV export (step 5)
+```
+
+## 6. License
+
+- **Code:** MIT License — see [`LICENSE`](LICENSE).
+- **Data:** MIMIC-IV v3.1 is distributed by PhysioNet under the PhysioNet Credentialed Health
+  Data License 1.5.0. No patient-level data is stored in this repository.
+
+## 7. Citation
+
+Johnson, A., Bulgarelli, L., Pollard, T., Gow, B., Moody, B., Horng, S., Celi, L. A., & Mark, R.
+(2024). *MIMIC-IV* (version 3.1). PhysioNet. https://doi.org/10.13026/kpb9-mt58
